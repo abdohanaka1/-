@@ -81,32 +81,23 @@ jobs:
               Write-Host "⚠️ No Auth Key provided → Generating login link..."
               Write-Host "Waiting for Tailscale to generate authentication URL..."
 
-              $tsProcess = Start-Process -FilePath "$env:ProgramFiles\Tailscale\tailscale.exe" `
-                -ArgumentList "up --hostname=gh-runner-${{ github.run_number }} --accept-routes --reset --advertise-tags=tag:github" `
-                -RedirectStandardOutput "$env:TEMP\ts-out.txt" `
-                -RedirectStandardError "$env:TEMP\ts-err.txt" `
-                -NoNewWindow -PassThru -Wait
-
-              Start-Sleep -Seconds 12
-
-              $output = Get-Content "$env:TEMP\ts-out.txt" -Raw -ErrorAction SilentlyContinue
-              $errorOut = Get-Content "$env:TEMP\ts-err.txt" -Raw -ErrorAction SilentlyContinue
-
+              # Better output capture method
+              $output = & "$env:ProgramFiles\Tailscale\tailscale.exe" up --hostname=gh-runner-${{ github.run_number }} --accept-routes --reset --advertise-tags=tag:github 2>&1 | Out-String
+              
               Write-Host $output
-              if ($errorOut) { Write-Host "Error: $errorOut" }
 
-              # Corrected regex
+              # Extract login link
               if ($output -match [](https://login\.tailscale\.com/a/[a-zA-Z0-9]+)") {
                   $loginUrl = $matches[1]
                   Write-Host "`n✅ LOGIN LINK GENERATED:" -ForegroundColor Green
                   Write-Host $loginUrl -ForegroundColor Cyan
                   Write-Host "`n👉 افتح هذا الرابط في المتصفح وقم بتسجيل الدخول" -ForegroundColor Yellow
               } elseif ($output -match "https://login\.tailscale\.com") {
-                  Write-Host "`n🔗 Found link in output:" 
-                  Write-Host ($output -split "`n" | Select-String "https://login.tailscale.com" | ForEach-Object { $_.Line })
+                  Write-Host "`n🔗 Found link:" 
+                  Write-Host ($output -split "`n" | Select-String "https" | ForEach-Object { $_.Line })
               } else {
-                  Write-Host "`n⚠️ Could not extract the link automatically." -ForegroundColor Yellow
-                  Write-Host "Please check the full output above for the login URL[](https://login.tailscale.com/a/xxxx)" -ForegroundColor Yellow
+                  Write-Host "`n⚠️ Could not extract link automatically." -ForegroundColor Yellow
+                  Write-Host "Check the output above for a link like: https://login.tailscale.com/a/xxxxxx" -ForegroundColor Yellow
               }
           }
 
@@ -124,7 +115,7 @@ jobs:
               Write-Host "Username   : $u"
               Write-Host "Password   : $p"
           } else {
-              Write-Host "`n⚠️ Tailscale is running. Use the login link above if needed." -ForegroundColor Yellow
+              Write-Host "`n⚠️ Tailscale is running but may need login. Check the link above." -ForegroundColor Yellow
           }
 
           Write-Host "================================================================"
