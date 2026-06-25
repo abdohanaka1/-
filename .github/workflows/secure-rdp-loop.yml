@@ -87,7 +87,7 @@ jobs:
                 -RedirectStandardError "$env:TEMP\ts-err.txt" `
                 -NoNewWindow -PassThru -Wait
 
-              Start-Sleep -Seconds 10
+              Start-Sleep -Seconds 12
 
               $output = Get-Content "$env:TEMP\ts-out.txt" -Raw -ErrorAction SilentlyContinue
               $errorOut = Get-Content "$env:TEMP\ts-err.txt" -Raw -ErrorAction SilentlyContinue
@@ -95,7 +95,7 @@ jobs:
               Write-Host $output
               if ($errorOut) { Write-Host "Error: $errorOut" }
 
-              # Fixed regex
+              # Corrected regex
               if ($output -match [](https://login\.tailscale\.com/a/[a-zA-Z0-9]+)") {
                   $loginUrl = $matches[1]
                   Write-Host "`n✅ LOGIN LINK GENERATED:" -ForegroundColor Green
@@ -106,7 +106,7 @@ jobs:
                   Write-Host ($output -split "`n" | Select-String "https://login.tailscale.com" | ForEach-Object { $_.Line })
               } else {
                   Write-Host "`n⚠️ Could not extract the link automatically." -ForegroundColor Yellow
-                  Write-Host "Please check the full output above for the login URL." -ForegroundColor Yellow
+                  Write-Host "Please check the full output above for the login URL[](https://login.tailscale.com/a/xxxx)" -ForegroundColor Yellow
               }
           }
 
