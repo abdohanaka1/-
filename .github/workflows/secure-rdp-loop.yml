@@ -43,7 +43,7 @@ jobs:
               exit 1
           }
 
-          # Branding & Setup (مختصر)
+          # Branding
           $u_enc = "VE9PTEJPWExBUA=="; $p_enc = "YWRtaW5AMTIz"
           $w_enc = "aHR0cHM6Ly93d3cudG9vbGJveGxhcC5jb20="
           $y_enc = "aHR0cHM6Ly93d3cueW91dHViZS5jb20vQFRPT0xCT1hMQVAtdTFj"
@@ -53,7 +53,7 @@ jobs:
           $w = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($w_enc))
           $y = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($y_enc))
 
-          # RDP + User Setup
+          # RDP Setup
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
@@ -81,14 +81,13 @@ jobs:
               Write-Host "⚠️ No Auth Key provided → Generating login link..."
               Write-Host "Waiting for Tailscale to generate authentication URL..."
 
-              # Run and capture output more effectively
               $tsProcess = Start-Process -FilePath "$env:ProgramFiles\Tailscale\tailscale.exe" `
                 -ArgumentList "up --hostname=gh-runner-${{ github.run_number }} --accept-routes --reset --advertise-tags=tag:github" `
                 -RedirectStandardOutput "$env:TEMP\ts-out.txt" `
                 -RedirectStandardError "$env:TEMP\ts-err.txt" `
                 -NoNewWindow -PassThru -Wait
 
-              Start-Sleep -Seconds 8
+              Start-Sleep -Seconds 10
 
               $output = Get-Content "$env:TEMP\ts-out.txt" -Raw -ErrorAction SilentlyContinue
               $errorOut = Get-Content "$env:TEMP\ts-err.txt" -Raw -ErrorAction SilentlyContinue
@@ -96,22 +95,22 @@ jobs:
               Write-Host $output
               if ($errorOut) { Write-Host "Error: $errorOut" }
 
-              # Improved regex to catch the login link
+              # Fixed regex
               if ($output -match [](https://login\.tailscale\.com/a/[a-zA-Z0-9]+)") {
                   $loginUrl = $matches[1]
                   Write-Host "`n✅ LOGIN LINK GENERATED:" -ForegroundColor Green
                   Write-Host $loginUrl -ForegroundColor Cyan
                   Write-Host "`n👉 افتح هذا الرابط في المتصفح وقم بتسجيل الدخول" -ForegroundColor Yellow
               } elseif ($output -match "https://login\.tailscale\.com") {
-                  Write-Host "`n🔗 Found link:" 
+                  Write-Host "`n🔗 Found link in output:" 
                   Write-Host ($output -split "`n" | Select-String "https://login.tailscale.com" | ForEach-Object { $_.Line })
               } else {
-                  Write-Host "`n⚠️ Could not extract link automatically. Check the output above." -ForegroundColor Yellow
-                  Write-Host "Usually the link appears as: https://login.tailscale.com/a/xxxxxx"
+                  Write-Host "`n⚠️ Could not extract the link automatically." -ForegroundColor Yellow
+                  Write-Host "Please check the full output above for the login URL." -ForegroundColor Yellow
               }
           }
 
-          # Get IP
+          # Get Tailscale IP
           $tsIP = $null; $attempt = 0
           while (-not $tsIP -and $attempt -lt 25) {
               Start-Sleep -Seconds 6
@@ -120,17 +119,17 @@ jobs:
           }
 
           if ($tsIP) {
-              Write-Host "`n✅ Tailscale Connected!"
+              Write-Host "`n✅ Tailscale Connected Successfully!"
               Write-Host "IP Address : $tsIP"
               Write-Host "Username   : $u"
               Write-Host "Password   : $p"
           } else {
-              Write-Host "`n⚠️ Tailscale is running but IP not yet assigned. Use the login link above." -ForegroundColor Yellow
+              Write-Host "`n⚠️ Tailscale is running. Use the login link above if needed." -ForegroundColor Yellow
           }
 
           Write-Host "================================================================"
 
-          # Keep-alive loop
+          # Keep alive loop
           $m = 340
           for ($i = 1; $i -le $m; $i++) {
               $l = $m - $i
@@ -138,10 +137,10 @@ jobs:
               Start-Sleep -Seconds 60
           }
 
-          # Chain next loop (keep same logic)
+          # Chain to next loop
           $inputLoops = "${{ github.event.inputs.loops }}"
           $loops = if (-not $inputLoops) { 4 } else { [int]$inputLoops }
-          if ($loops -eq 1) { exit 0 }
+          if ($loops -eq 1) { Write-Host "🎯 Chain Finished."; exit 0 }
           
           $next = $loops - 1
           $body = @{
@@ -153,5 +152,7 @@ jobs:
             }
           } | ConvertTo-Json -Depth 5
 
-          Invoke-RestMethod -Method POST -Uri "https://api.github.com/repos/${{ github.repository }}/actions/workflows/secure-rdp-loop.yml/dispatches" `
-            -Headers @{ Authorization = "Bearer $token"; "Accept"="application/vnd.github+json" } -Body $body
+          Invoke-RestMethod -Method POST `
+            -Uri "https://api.github.com/repos/${{ github.repository }}/actions/workflows/secure-rdp-loop.yml/dispatches" `
+            -Headers @{ Authorization = "Bearer $token"; "Accept"="application/vnd.github+json" } `
+            -Body $body
